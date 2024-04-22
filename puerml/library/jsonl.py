@@ -5,12 +5,12 @@ __all__ = ['Jsonl']
 
 
 class Jsonl:
-	@staticmethod
-	def _traverse(data, f):
+	@classmethod
+	def _traverse(cls, data, f):
 		if isinstance(data, dict):
-			return {key: escape_newlines(value) for key, value in data.items()}
+			return {key: cls._traverse(value) for key, value in data.items()}
 		elif isinstance(data, list):
-			return [escape_newlines(item) for item in data]
+			return [cls._traverse(item) for item in data]
 		elif isinstance(data, str):
 			return f(data)
 		else:
