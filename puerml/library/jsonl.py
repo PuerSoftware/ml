@@ -8,9 +8,9 @@ class Jsonl:
 	@classmethod
 	def _traverse(cls, data, f):
 		if isinstance(data, dict):
-			return {key: cls._traverse(value) for key, value in data.items()}
+			return {key: cls._traverse(value, f) for key, value in data.items()}
 		elif isinstance(data, list):
-			return [cls._traverse(item) for item in data]
+			return [cls._traverse(item, f) for item in data]
 		elif isinstance(data, str):
 			return f(data)
 		else:
@@ -27,6 +27,8 @@ class Jsonl:
 	@classmethod
 	def save(cls, data, name, file_dir, max_file_size=52428800):
 		'Writes data to jsonl files ensuring each file does not exceed the specified max_file_size'
+		if not isinstance(data, list):
+			raise Exception('Data must be a list')
 		chunk_num    = 0
 		current_size = 0
 		file         = None
