@@ -6,12 +6,23 @@ __all__ = ['Jsonl']
 
 class Jsonl:
 	@staticmethod
-	def _escape(s):
-		return s.replace('\n', '\\n')
+	def _traverse(data, f):
+		if isinstance(data, dict):
+			return {key: escape_newlines(value) for key, value in data.items()}
+		elif isinstance(data, list):
+			return [escape_newlines(item) for item in data]
+		elif isinstance(data, str):
+			return f(data)
+		else:
+			return data  # Return the data unchanged if it's not a dict, list, or string.
+
+	@classmethod
+	def _escape(cls, data):
+		return cls._traverse(data, lambda s: s.replace('\n', '\\n'))
 	
-	@staticmethod
-	def _unescape(s):
-		return s.replace('\\n', '\n')
+	@classmethod
+	def _unescape(data):
+		return cls._traverse(data, lambda s: s.replace('\\n', '\n'))
 
 	@classmethod
 	def save(cls, data, name, file_dir, max_file_size=52428800):
@@ -32,8 +43,7 @@ class Jsonl:
 		open_new_file()
 
 		for item in data:
-			item = cls._escape(item)
-			jsonl_line = json.dumps(item) + '\n'
+			jsonl_line = json.dumps(cls._escape(item)) + '\n'
 			line_size  = len(jsonl_line.encode('utf-8'))
 			if max_file_size and current_size + line_size > max_file_size:
 				open_new_file()
@@ -51,8 +61,7 @@ class Jsonl:
 		for file_path in files:
 			with open(file_path, 'r') as file:
 				for line in file:
-					line = cls._unescape(line)
-					all.append(json.loads(line.strip()))
+					all.append(cls._unescape(json.loads(line.strip())))
 
 		return all
 
@@ -66,12 +75,9 @@ class Jsonl:
 			with open(file_path, 'r') as file:
 				batch = []
 				for line in file:
-					line = cls._unescape(line)
-					batch.append(json.loads(line.strip()))
+					batch.append(cls._unescape(json.loads(line.strip())))
 					if len(batch) == batch_size:
 						yield batch
 						batch = []
 				if batch:
 					yield batch
-
-Jsonl.version = '0.1'
