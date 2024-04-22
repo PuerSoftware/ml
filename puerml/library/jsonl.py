@@ -21,7 +21,7 @@ class Jsonl:
 		return cls._traverse(data, lambda s: s.replace('\n', '\\n'))
 	
 	@classmethod
-	def _unescape(data):
+	def _unescape(cls, data):
 		return cls._traverse(data, lambda s: s.replace('\\n', '\n'))
 
 	@classmethod
