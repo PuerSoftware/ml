@@ -1,6 +1,9 @@
 import time
 import json
 
+__all__ = ['Benchmark']
+
+
 class Benchmark:
     data = {}
 

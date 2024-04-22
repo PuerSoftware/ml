@@ -1,6 +1,8 @@
 import os
 import json
 
+__all__ = ['Jsonl']
+
 
 class Jsonl:
 	@staticmethod
