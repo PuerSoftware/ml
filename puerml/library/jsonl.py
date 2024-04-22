@@ -6,7 +6,15 @@ __all__ = ['Jsonl']
 
 class Jsonl:
 	@staticmethod
-	def save(data, name, file_dir, max_file_size=52428800):
+	def _escape(s):
+		return s.replace('\n', '\\n')
+	
+	@staticmethod
+	def _unescape(s):
+		return s.replace('\\n', '\n')
+
+	@classmethod
+	def save(cls, data, name, file_dir, max_file_size=52428800):
 		'Writes data to jsonl files ensuring each file does not exceed the specified max_file_size'
 		chunk_num    = 0
 		current_size = 0
@@ -24,6 +32,7 @@ class Jsonl:
 		open_new_file()
 
 		for item in data:
+			item = cls._escape(item)
 			jsonl_line = json.dumps(item) + '\n'
 			line_size  = len(jsonl_line.encode('utf-8'))
 			if max_file_size and current_size + line_size > max_file_size:
@@ -34,20 +43,21 @@ class Jsonl:
 		if file:
 			file.close()
 
-	@staticmethod
-	def load_all(name, file_dir):
+	@classmethod
+	def load_all(cls, name, file_dir):
 		'Load all records at once'
 		all = []
 		files = sorted([os.path.join(file_dir, f) for f in os.listdir(file_dir) if f.startswith(name) and f.endswith('.jsonl')])
 		for file_path in files:
 			with open(file_path, 'r') as file:
 				for line in file:
+					line = cls._unescape(line)
 					all.append(json.loads(line.strip()))
 
 		return all
 
-	@staticmethod
-	def load(name, file_dir, batch_size=None):
+	@classmethod
+	def load(cls, name, file_dir, batch_size=None):
 		'Generator to read jsonl files in batches'
 		if batch_size is None:
 			return Jsonl.load_all(name, file_dir)
@@ -56,6 +66,7 @@ class Jsonl:
 			with open(file_path, 'r') as file:
 				batch = []
 				for line in file:
+					line = cls._unescape(line)
 					batch.append(json.loads(line.strip()))
 					if len(batch) == batch_size:
 						yield batch
