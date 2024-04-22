@@ -73,3 +73,5 @@ class Jsonl:
 						batch = []
 				if batch:
 					yield batch
+
+Jsonl.version = '0.1'
