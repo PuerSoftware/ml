@@ -45,7 +45,7 @@ class Jsonl:
 		open_new_file()
 
 		for item in data:
-			jsonl_line = json.dumps(cls._escape(item)) + '\n'
+			jsonl_line = cls.encode(item) + '\n'
 			line_size  = len(jsonl_line.encode('utf-8'))
 			if max_file_size and current_size + line_size > max_file_size:
 				open_new_file()
@@ -63,23 +63,22 @@ class Jsonl:
 		for file_path in files:
 			with open(file_path, 'r') as file:
 				for line in file:
-					all.append(cls._unescape(json.loads(line.strip())))
-
+					all.append(cls.decode(line))
 		return all
 
 	@classmethod
-	def load(cls, name, file_dir, batch_size=None):
+	def load(cls, name, file_dir):
 		'Generator to read jsonl files in batches'
-		if batch_size is None:
-			return Jsonl.load_all(name, file_dir)
 		files = sorted([os.path.join(file_dir, f) for f in os.listdir(file_dir) if f.startswith(name) and f.endswith('.jsonl')])
 		for file_path in files:
 			with open(file_path, 'r') as file:
-				batch = []
 				for line in file:
-					batch.append(cls._unescape(json.loads(line.strip())))
-					if len(batch) == batch_size:
-						yield batch
-						batch = []
-				if batch:
-					yield batch
+					yield cls.decode(line)
+
+	@classmethod
+	def encode(cls, item):
+		return json.dumps(cls._escape(item))
+
+	@classmethod
+	def decode(cls, line):
+		return cls._unescape(json.loads(line.strip()))
