@@ -1,5 +1,4 @@
-from puerml import Jsonl
-from puerml import Git
+from puerml import Jsonl, Git, DataFrame
 
 FILE_NAME = 'test'
 FILE_DIR  = 'test_data'
@@ -19,13 +18,22 @@ def test_Git():
 	file_path = ''
 
 	git = Git(user, repo, branch, token=token)
-	counter = 0
-	for obj in git.load_jsonl(file_path, True):
-		if counter > 10:
-			break
-		print(obj)
-		counter += 1
+	# counter = 0
+	# for obj in git.load_jsonl(file_path, True):
+	# 	if counter > 10:
+	# 		break
+	# 	print(obj)
+	# 	counter += 1
+	return git.load_all(file_path)
+	
+def test_DataFrame():
+	data = test_Git()
+	print(data)
+	df   = DataFrame.from_string(data)
+	print(df.header)
 
 if __name__ == '__main__':
 	test_Jsonl()
 	test_Git()
+	test_DataFrame()
+

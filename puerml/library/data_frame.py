@@ -44,6 +44,11 @@ class DataFrame:
 		df.append_file(file_path, delimiter, encoding)
 		return df
 		
+	@staticmethod
+	def from_string(s, delimiter='\t'):
+		rows   = [line.strip().split(delimiter) for line in s.split('\n')]
+		header = rows.pop(0)
+		return DataFrame(header, rows)
 
 	######################################################
 			
