@@ -46,7 +46,7 @@ class DataFrame:
 		
 	@staticmethod
 	def from_string(s, delimiter='\t'):
-		rows   = [line.strip().split(delimiter) for line in s.split('\n')]
+		rows   = [line.strip(' \r\n').split(delimiter) for line in s.strip(' \r\n').split('\n')]
 		header = rows.pop(0)
 		return DataFrame(header, rows)
 
