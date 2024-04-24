@@ -3,15 +3,18 @@ import io
 import json
 import requests
 
+__all__ = ['Data']
+
 
 class Data:
-	def __init__(self, data=None, is_binary=False):
-		self.data      = io.BytesIO(data) if is_binary else io.StringIO(data)
-		self.is_binary = None
-		self.headers   = None
-		self.location  = None
-		self.from_web  = None
-		self.file_type = None
+	def __init__(self, data=None, file_type=None, is_binary=False):
+		self.data       = io.BytesIO(data) if is_binary else io.StringIO(data)
+		self.is_binary  = is_binary if data else None
+		self.file_type  = file_type if data else None
+		self.headers    = None
+		self.location   = None
+		self.from_web   = None
+		self.description = ''
 
 	def _read_manifest(self):
 		file_loc = os.path.join(self.location, 'manifest.json')
@@ -22,10 +25,10 @@ class Data:
 			with open(file_loc) as f:
 				return json.load(f)
 
-	def _write_manifest(self, manifest):
-		file_loc = os.path.join(self.location, 'manifest.json')
+	def _write_manifest(self, location, manifest):
+		file_loc = os.path.join(location, 'manifest.json')
 		with open(file_loc, 'w') as f:
-			return json.dump(f, manifest)
+			return json.dump(manifest, f)
 
 	def _read_web(self, file_loc):
 		response = requests.get(file_loc, headers=self.headers, stream=True)
@@ -34,10 +37,12 @@ class Data:
 		return None
 
 	def _read_disk(self, file_loc):
-		mode = 'rb' if self.is_binary else 'r'
-		if os.path.exists(file_loc):
-			with open(file_loc, mode) as f:
-				return f
+		try:
+			if os.path.exists(file_loc):
+				mode = 'rb' if self.is_binary else 'r'
+				return open(file_loc, mode)
+		except Exception as e:
+			print(f'Failed to open file {file_loc}: {e}')
 		return None
 
 	def _file_generator(self):
@@ -47,9 +52,12 @@ class Data:
 			n = 0
 			while True:
 				file_loc = os.path.join(self.location, f'{n}.{self.file_type}')
-				read     = self._read_web if from_web else self._read_disk
-				if file := read(file_loc):
+				read = self._read_web if self.from_web else self._read_disk
+				file = read(file_loc)
+				if file:
 					yield file
+					if not self.from_web:
+						file.close()
 					n += 1
 				else:
 					break
@@ -63,7 +71,7 @@ class Data:
 
 	def _line_generator(self):
 		for file in self._file_generator():
-			iterator = file.iter_lines(decode_unicode=True) if self.from_web else item
+			iterator = file.iter_lines(decode_unicode=True) if self.from_web else file
 			for line in iterator:
 				yield line.strip()
 
@@ -112,14 +120,15 @@ class Data:
 						start = end
 						n += 1
 
-		self._write_manifest({
+		self._write_manifest(location, {
 			'description' : description or self.description,
 			'count'       : n,
 			'type'        : self.file_type,
 			'is_binary'   : self.is_binary
 		})
-
-	def items(self): # TODO: add line preprocessing
+	
+	@property
+	def lines(self):
 		return self._line_generator()
 
 	def content(self):
@@ -141,24 +150,3 @@ class Data:
 
 	def chunks(self, chunk_size=1024):
 		...
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

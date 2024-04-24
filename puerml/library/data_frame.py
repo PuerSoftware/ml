@@ -53,8 +53,8 @@ class DataFrame:
 	@staticmethod
 	def load(data_object):
 		type_to_delim = {'csv': ',', 'tsv': '\t'}
-			if data_object.file_type in type_to_delim:
-				delimiter = type_to_delim[data_object.file_type]
+		if data_object.file_type in type_to_delim:
+			delimiter = type_to_delim[data_object.file_type]
 
 		lines = data_object.items()
 		header = next(lines).split(delimiter)
