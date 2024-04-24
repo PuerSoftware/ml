@@ -1,6 +1,8 @@
 import os
 import csv
 
+from .data import Data
+
 __all__ = ['DataFrameRow', 'DataFrame']
 
 
@@ -44,19 +46,14 @@ class DataFrame:
 		df.append_file(file_path, delimiter, encoding)
 		return df
 		
-	# @staticmethod
-	# def from_string(s, delimiter='\t'):
-	# 	rows   = [line.strip(' \r\n').split(delimiter) for line in s.strip(' \r\n').split('\n')]
-	# 	header = rows.pop(0)
-	# 	return DataFrame(header, rows)
-
 	@staticmethod
-	def load(data_object):
+	def load(location, http_headers=None):
+		data_object   = Data.load(location, headers=http_headers)
 		type_to_delim = {'csv': ',', 'tsv': '\t'}
 		if data_object.file_type in type_to_delim:
 			delimiter = type_to_delim[data_object.file_type]
 
-		lines = data_object.items()
+		lines  = data_object.lines
 		header = next(lines).split(delimiter)
 		df = DataFrame(header)
 		for line in lines:
@@ -101,39 +98,6 @@ class DataFrame:
 			raise StopIteration
 	def _error(self, s):
 		print('Error:', s)
-
-	# def create_index(self, col):
-	# 	if self.headers.get(col):
-	# 		self.indices[col] = {}
-	# 		for n in range(len(self.rows)):
-	# 			self.index_row(col, n)
-	# 	else:
-	# 		self._error(f'Column "{col}" does not exist')
-
-	# def delete_index(self, col):
-	# 	if self.headers.get(col):
-	# 		if self.indices.get(col):
-	# 			del self.indices[col]
-	# 		else:
-	# 			self._error(f'Index "{col}" does not exist')
-	# 	else:
-	# 		self._error(f'Column "{col}" does not exist')
-
-	# def index_row(self, col, row_n):
-	# 	col_n   = self.cols[col]
-	# 	row     = self.rows[row_n]
-	# 	value   = row[col_n]
-	# 	if not idx_set := self.indices[col].get(value)
-	# 		idx_set = set()
-	# 		self.indices[col][str(value).lower()] = idx_set
-	# 	idx_set.add(row_n)
-
-	# def has_index(self, col):
-	# 	return bool(self.indices.get(col))
-
-	# def get_by_value(col, value):
-	# 	if self.has_index(col):
-	# 		if 
 
 	def get_index(self, col):
 		return {
@@ -325,16 +289,19 @@ class DataFrame:
 			df.append(self.rows[n].copy(df))
 		return df
 
-	def save(self, file_path, delimiter=None, encoding='utf-8'):
-		file_name, file_ext = os.path.splitext(file_path)
-		if delimiter is None:
-			delimiter = {'.tsv':'\t', '.csv':','}.get(file_ext.lower())
+	def save(self, location, file_type, max_size=99*1024):
+		file_type = file_type.lower()
+		delimiter = {'tsv':'\t', 'csv':','}.get(file_type)
+		if delimiter:
+			header = delimiter.join(self.header)
+			rows   = [delimiter.join(row) for row in self]
+			rows.insert(0, header)
+			data = '\n'.join(rows)
+			Data(data, file_type).save(location, max_size)
+			return self
+		else:
+			raise Exception(f'Unsupported file type: "{file_type}"')
 
-		with open(file_path, 'w', encoding=encoding, newline='') as f:
-			writer = csv.writer(f, delimiter=delimiter)
-			writer.writerow(self.header)
-			writer.writerows(self.rows)
-		return self
 
 	def to_list(self, col, _type=str):
 		return [_type(self.rows[n].get(col)) for n in range(len(self.rows))]

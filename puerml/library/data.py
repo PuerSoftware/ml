@@ -1,4 +1,5 @@
 import os
+import shutil
 import io
 import json
 import requests
@@ -114,8 +115,9 @@ class Data:
 		...
 
 	def save(self, location, max_size=None, description=''):
-		if not os.path.exists(location):
-			os.makedirs(location)
+		if os.path.exists(location):
+			shutil.rmtree(location)
+		os.makedirs(location)
 
 		def _write(l, t, n, m, c):
 			l = os.path.join(l, f'{n}.{t}')
@@ -131,15 +133,17 @@ class Data:
 			n = 0
 			buffer, buffer_size = [], 0
 			for line in self._line_generator():
-				next_buffer_size = len(string.encode('utf-8')) + buffer_size
-				if next_buffer_size > max_size:
+				line_size        = len(line.encode('utf-8'))
+				next_buffer_size = line_size + buffer_size
+				if next_buffer_size > max_size and len(buffer) > 0:
 					_write(location, self.file_type, n, 'w', '\n'.join(buffer))
 					buffer, buffer_size = [], 0
-				else:
-					buffer.append(line)
-					buffer_size = next_buffer_size
+					n += 1
+				buffer.append(line)
+				buffer_size = next_buffer_size
 			if buffer_size > 0:
 				_write(location, self.file_type, n, 'w', '\n'.join(buffer))
+				n += 1
 
 		self._write_manifest(location, {
 			'description' : description or self.description,

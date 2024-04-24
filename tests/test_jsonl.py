@@ -5,11 +5,11 @@ from inspect import isgenerator
 from puerml  import Jsonl
 
 @pytest.fixture(scope='session')
-def temp_dir(tmp_path_factory):
+def temp_jsonl_dir(tmp_path_factory):
     return tmp_path_factory.mktemp('json_test_dir')
     
 @pytest.fixture(scope='session')
-def test_data():
+def test_jsonl_data():
     return [{
 			'int'    : i,
 			'string' : f'foo\n{i}',
@@ -19,25 +19,26 @@ def test_data():
 		for i in range(10)
 	]
 
-def test_Jsonl_save_and_load_local(temp_dir, test_data):
-    location = str(temp_dir)
+def test_Jsonl_save_and_load_local(temp_jsonl_dir, test_jsonl_data):
+    location = str(temp_jsonl_dir)
     # save
-    Jsonl.save(test_data, location)
+    Jsonl.save(test_jsonl_data, location)
     # load
     loaded_data = Jsonl.load(location, generator=False)
-    assert json.dumps(loaded_data) == json.dumps(test_data)
+    assert json.dumps(loaded_data) == json.dumps(test_jsonl_data)
 
-def test_Jsonl_save_and_load_local_generator(temp_dir, test_data):
-    location = str(temp_dir)
+def test_Jsonl_save_and_load_local_generator(temp_jsonl_dir, test_jsonl_data):
+    location = str(temp_jsonl_dir)
     # save
-    Jsonl.save(test_data, location)
+    Jsonl.save(test_jsonl_data, location)
     # load
     loaded_data = Jsonl.load(location)
     assert isgenerator(loaded_data)
-    assert json.dumps(list(loaded_data)) == json.dumps(test_data)
+    assert json.dumps(list(loaded_data)) == json.dumps(test_jsonl_data)
 
-def test_Jsonl_load_web(test_data):
+def test_Jsonl_load_web(test_jsonl_data):
     location = 'https://raw.githubusercontent.com/PuerSoftware/puerml_test/main/jsonl_test_data'
     # load
     loaded_data = Jsonl.load(location, generator=False)
-    assert json.dumps(loaded_data) == json.dumps(test_data)
+    assert json.dumps(loaded_data) == json.dumps(test_jsonl_data)
+    
