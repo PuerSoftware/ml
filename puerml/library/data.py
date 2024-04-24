@@ -2,6 +2,7 @@ import os
 import shutil
 import io
 import json
+import zipfile
 import requests
 
 __all__ = ['Data']
@@ -10,7 +11,7 @@ __all__ = ['Data']
 class Data:
 	def __init__(self, data=None, file_type=None, is_binary=False):
 		self.data       = io.BytesIO(data) if is_binary else io.StringIO(data)
-		self.is_binary  = is_binary if data else None
+		self.is_binary  = is_binary
 		self.file_type  = file_type if data else None
 		self.headers    = None
 		self.location   = None
@@ -52,7 +53,8 @@ class Data:
 		else:
 			n = 0
 			while True:
-				file_loc = os.path.join(self.location, f'{n}.{self.file_type}')
+				file_name  = f'{n}.{self.file_type}' if self.file_type else str(n)
+				file_loc = os.path.join(self.location, file_name)
 				read = self._read_web if self.from_web else self._read_disk
 				file = read(file_loc)
 				if file:
@@ -102,7 +104,7 @@ class Data:
 			manifest = d._read_manifest()
 			d.description = manifest['description']
 			d.is_binary   = manifest['is_binary']
-			d.file_type   = manifest['type'].lower()
+			d.file_type   = manifest['type'].lower() if manifest['type'] else None
 		else:
 			d.description = ''
 			d.is_binary   = is_binary
@@ -111,7 +113,7 @@ class Data:
 		return d
 
 	@staticmethod
-	def load_file(location):  # TODO: implement for single files
+	def load_file(location):   # TODO: implement for single files
 		...
 
 	def save(self, location, max_size=None, description=''):
@@ -120,7 +122,8 @@ class Data:
 		os.makedirs(location)
 
 		def _write(l, t, n, m, c):
-			l = os.path.join(l, f'{n}.{t}')
+			fn = f'{n}.{t}' if t else str(n)
+			l = os.path.join(l, fn)
 			with open(l, m) as f:
 				f.write(c)
 
@@ -151,7 +154,28 @@ class Data:
 			'type'        : self.file_type,
 			'is_binary'   : self.is_binary
 		})
-	
+
+	def zip(self, location):
+		self.data = io.BytesIO()
+		with zipfile.ZipFile(self.data, 'w') as f:
+			for root, _, files in os.walk(location):
+				for file in files:
+					file_path = os.path.join(root, file)
+					f.write(file_path, os.path.relpath(file_path, start=location))
+		self.data.seek(0)
+		return self
+
+	def unzip(self, location):
+		buffer = io.BytesIO()
+		for f in self._file_generator():
+			buffer.write(f.read())
+
+		buffer.seek(0)
+		if os.path.exists(location):
+			shutil.rmtree(location)
+		with zipfile.ZipFile(buffer, 'r') as f:
+			f.extractall(location)
+
 	@property
 	def lines(self):
 		return self._line_generator()
