@@ -44,11 +44,24 @@ class DataFrame:
 		df.append_file(file_path, delimiter, encoding)
 		return df
 		
+	# @staticmethod
+	# def from_string(s, delimiter='\t'):
+	# 	rows   = [line.strip(' \r\n').split(delimiter) for line in s.strip(' \r\n').split('\n')]
+	# 	header = rows.pop(0)
+	# 	return DataFrame(header, rows)
+
 	@staticmethod
-	def from_string(s, delimiter='\t'):
-		rows   = [line.strip(' \r\n').split(delimiter) for line in s.strip(' \r\n').split('\n')]
-		header = rows.pop(0)
-		return DataFrame(header, rows)
+	def load(data_object):
+		type_to_delim = {'csv': ',', 'tsv': '\t'}
+			if data_object.file_type in type_to_delim:
+				delimiter = type_to_delim[data_object.file_type]
+
+		lines = data_object.items()
+		header = next(lines).split(delimiter)
+		df = DataFrame(header)
+		for line in lines:
+			df.append(line.split(delimiter))
+		return df
 
 	######################################################
 			
