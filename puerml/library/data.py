@@ -69,6 +69,18 @@ class Data:
 			else:
 				yield file.read()
 
+	def _chunk_generator(self, max_size=1024*1024):
+		for file in self._file_generator():
+			if self.from_web:
+				for chunk in file.iter_content(chunk_size=max_size):
+					yield chunk if self.is_binary else chunk.decode('utf-8')
+			else:
+				while True:
+					chunk = file.read(max_size)
+					if not chunk:
+						break
+					yield chunk
+
 	def _line_generator(self):
 		for file in self._file_generator():
 			iterator = file.iter_lines(decode_unicode=True) if self.from_web else file
@@ -105,20 +117,29 @@ class Data:
 		if not os.path.exists(location):
 			os.makedirs(location)
 
-		n = 0
-		for content in self._content_generator():
-			if content:
-				chunk_size = max_size or len(content)
-				start      = 0
-				while start < len(content):
-					end       = start + chunk_size
-					chunk     = content[start:end]
-					file_path = os.path.join(location, f'{n}.{self.file_type}')
-					mode      = 'wb' if self.is_binary else 'w'
-					with open(file_path, mode) as f:
-						f.write(chunk)
-						start = end
-						n += 1
+		def _write(l, t, n, m, c):
+			l = os.path.join(l, f'{n}.{t}')
+			with open(l, m) as f:
+				f.write(c)
+
+		if self.is_binary:
+			n = 0
+			for chunk in self._chunk_generator(max_size):
+				_write(location, self.file_type, n, 'wb', chunk)
+				n += 1
+		else:
+			n = 0
+			buffer, buffer_size = [], 0
+			for line in self._line_generator():
+				next_buffer_size = len(string.encode('utf-8')) + buffer_size
+				if next_buffer_size > max_size:
+					_write(location, self.file_type, n, 'w', '\n'.join(buffer))
+					buffer, buffer_size = [], 0
+				else:
+					buffer.append(line)
+					buffer_size = next_buffer_size
+			if buffer_size > 0:
+				_write(location, self.file_type, n, 'w', '\n'.join(buffer))
 
 		self._write_manifest(location, {
 			'description' : description or self.description,
