@@ -1,8 +1,10 @@
 from setuptools import setup, find_packages
+from version    import Version
+
 
 setup(
     name='puerml',
-    version='0.1.8',
+    version=Version.get(),
     packages=find_packages(),
     install_requires=[],
 )

@@ -1,20 +1,22 @@
+[build-system]
+requires = [ "poetry-core",]
+build-backend = "poetry.core.masonry.api"
+
 [tool.poetry]
 name = "puerml"
-version = "0.1.0"
+version = "0.1.13"
 description = ""
-authors = ["Oleksii Zaichenko <oleksii@shipxdata.com>"]
+authors = [ "Oleksii Zaichenko <oleksii@shipxdata.com>"]
 readme = "README.md"
 
 [tool.poetry.scripts]
 test = "pytest:main"
 
-
 [tool.poetry.dependencies]
 python = "^3.11"
 requests = "^2.31.0"
 pytest = "^8.1.1"
+toml = "^0.10.2"
 
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.poetry-exec-plugin.commands]
+pip_deploy = "python -m pip install --upgrade pip wheel setuptools; rm -rf build/ dist/ *.egg-info; python version.py $1; python setup.py sdist bdist_wheel; twine upload --verbose dist/*"
