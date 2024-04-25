@@ -28,6 +28,10 @@ class TestDataFrame:
 	def test_load_local(self):
 		self._assert_df(DataFrame.load(self.location))
 	
+	def test_save_and_load_local_single_file(self):
+		DataFrame(self.header, self.rows).save(self.location, self.file_type, None)
+		self._assert_df(DataFrame.load(self.location))
+
 	def test_load_web(self):
 		self._assert_df(DataFrame.load(self.web_location))
 		

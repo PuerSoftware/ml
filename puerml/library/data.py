@@ -51,7 +51,8 @@ class Data:
 		if self.data:
 			yield self.data
 		else:
-			if os.path.exists(f'{location}.{self.file_type}'):
+			location = f'{self.location}.{self.file_type}'
+			if os.path.exists(location):
 				with open(location, 'rb' if self.is_binary else 'r') as f:
 					yield f
 			else:
@@ -120,7 +121,7 @@ class Data:
 		if max_size is None:
 			location = f'{location}.{self.file_type}'
 			with open(location, 'wb' if self.is_binary else 'w') as f:
-				f.write(self.data.read())
+				f.write(next(self._file_generator()).read())
 			return
 
 		if os.path.exists(location):
