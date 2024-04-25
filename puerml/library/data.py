@@ -51,19 +51,23 @@ class Data:
 		if self.data:
 			yield self.data
 		else:
-			n = 0
-			while True:
-				file_name  = f'{n}.{self.file_type}' if self.file_type else str(n)
-				file_loc = os.path.join(self.location, file_name)
-				read = self._read_web if self.from_web else self._read_disk
-				file = read(file_loc)
-				if file:
-					yield file
-					if not self.from_web:
-						file.close()
-					n += 1
-				else:
-					break
+			if os.path.exists(f'{location}.{self.file_type}'):
+				with open(location, 'rb' if self.is_binary else 'r') as f:
+					yield f
+			else:
+				n = 0
+				while True:
+					file_name  = f'{n}.{self.file_type}' if self.file_type else str(n)
+					file_loc = os.path.join(self.location, file_name)
+					read = self._read_web if self.from_web else self._read_disk
+					file = read(file_loc)
+					if file:
+						yield file
+						if not self.from_web:
+							file.close()
+						n += 1
+					else:
+						break
 
 	def _content_generator(self):  # TODO: modify to produce chunks efficiently
 		for file in self._file_generator():
@@ -112,11 +116,13 @@ class Data:
 
 		return d
 
-	@staticmethod
-	def load_file(location):   # TODO: implement for single files
-		...
-
 	def save(self, location, max_size=None, description=''):
+		if max_size is None:
+			location = f'{location}.{self.file_type}'
+			with open(location, 'wb' if self.is_binary else 'w') as f:
+				f.write(self.data.read())
+			return
+
 		if os.path.exists(location):
 			shutil.rmtree(location)
 		os.makedirs(location)
