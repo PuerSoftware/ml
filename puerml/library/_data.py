@@ -95,6 +95,33 @@ class Data:
 			for line in iterator:
 				yield line.strip()
 
+	def _save_as_single_file(self):
+		location = f'{location}.{self.file_type}'
+			with open(location, 'wb' if self.is_binary else 'w') as f:
+				f.write(next(self._file_generator()).read())
+
+	def _save_as_binary_package(self):
+		n = 0
+		for chunk in self._chunk_generator(max_size):
+			_write(location, self.file_type, n, 'wb', chunk)
+			n += 1
+
+	def _save_as_text_package(self):
+		n = 0
+		buffer, buffer_size = [], 0
+		for line in self._line_generator():
+			line_size        = len(line.encode('utf-8'))
+			next_buffer_size = line_size + buffer_size
+			if next_buffer_size > max_size and len(buffer) > 0:
+				_write(location, self.file_type, n, 'w', '\n'.join(buffer))
+				buffer, buffer_size = [], 0
+				n += 1
+			buffer.append(line)
+			buffer_size = next_buffer_size
+		if buffer_size > 0:
+			_write(location, self.file_type, n, 'w', '\n'.join(buffer))
+			n += 1
+
 	################################################################################
 
 	@staticmethod
@@ -119,48 +146,29 @@ class Data:
 
 	def save(self, location, max_size=None, description=''):
 		if max_size is None:
-			location = f'{location}.{self.file_type}'
-			with open(location, 'wb' if self.is_binary else 'w') as f:
-				f.write(next(self._file_generator()).read())
-			return
-
-		if os.path.exists(location):
-			shutil.rmtree(location)
-		os.makedirs(location)
-
-		def _write(l, t, n, m, c):
-			fn = f'{n}.{t}' if t else str(n)
-			l = os.path.join(l, fn)
-			with open(l, m) as f:
-				f.write(c)
-
-		if self.is_binary:
-			n = 0
-			for chunk in self._chunk_generator(max_size):
-				_write(location, self.file_type, n, 'wb', chunk)
-				n += 1
+			self._save_as_single_file()
 		else:
-			n = 0
-			buffer, buffer_size = [], 0
-			for line in self._line_generator():
-				line_size        = len(line.encode('utf-8'))
-				next_buffer_size = line_size + buffer_size
-				if next_buffer_size > max_size and len(buffer) > 0:
-					_write(location, self.file_type, n, 'w', '\n'.join(buffer))
-					buffer, buffer_size = [], 0
-					n += 1
-				buffer.append(line)
-				buffer_size = next_buffer_size
-			if buffer_size > 0:
-				_write(location, self.file_type, n, 'w', '\n'.join(buffer))
-				n += 1
+			if os.path.exists(location):
+				shutil.rmtree(location)
+			os.makedirs(location)
 
-		self._write_manifest(location, {
-			'description' : description or self.description,
-			'count'       : n,
-			'type'        : self.file_type,
-			'is_binary'   : self.is_binary
-		})
+			def _write(l, t, n, m, c):
+				fn = f'{n}.{t}' if t else str(n)
+				l = os.path.join(l, fn)
+				with open(l, m) as f:
+					f.write(c)
+
+			if self.is_binary:
+				self._save_as_binary_package()
+			else:
+				self._save_as_text_package()
+
+			self._write_manifest(location, {
+				'description' : description or self.description,
+				'count'       : n,
+				'type'        : self.file_type,
+				'is_binary'   : self.is_binary
+			})
 
 	def zip(self, location):
 		self.data = io.BytesIO()
