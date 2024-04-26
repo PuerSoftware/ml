@@ -29,15 +29,14 @@ class Jsonl:
 	@classmethod
 	def save(cls, data, location, max_size=99*1024):
 		data = '\n'.join([cls.encode(item) for item in data])
-		Data(data, 'jsonl').save(location, max_size)
+		Data.set(data).save(location, max_size)
 
 	@classmethod
 	def load(cls, location, generator=True, http_headers=None):
-		data_object = Data.load(location, headers=http_headers)
+		d = Data.load(location, headers=http_headers)
 		if generator:
-			return (cls.decode(line) for line in data_object.lines)
-		else:
-			return [cls.decode(line) for line in data_object.lines]
+			return (cls.decode(line) for line in d.line_gen)
+		return [cls.decode(line) for line in d.line_gen]
 
 	@classmethod
 	def encode(cls, item):
