@@ -162,13 +162,16 @@ class DataWriter:
 class Data:
 	def __init__(self, reader):
 		self.reader = reader
+		self.type   = None
 
 	@staticmethod
-	def set(data):
+	def set(data, file_type=None):
+		self.type = file_type.lower()
 		return Data(DataReader.set(data))
 
 	@staticmethod
 	def load(location):
+		_, file_type = os.path.splitext(location.lower())
 		return Data(DataReader.load(location))
 
 	def save(self, location, max_size=None):
@@ -202,7 +205,6 @@ class Data:
 		with zipfile.ZipFile(buffer, 'r') as f:
 			f.extractall(location)
 		return self
-
 
 	@property
 	def content(self):
