@@ -53,7 +53,34 @@ class DataReader:
 			return self._read_local(location)
 		return self._read_remote(location, headers)
 
-	def _file_generator(self, location, headers=None):
+	def _chunk_binary_gen(self, max_size):
+		for f in self.file_gen():
+			if self.is_local:
+				while True:
+					b = f.read(max_size)
+					if not b:
+						break
+					yield b
+			else:
+				for b in f.iter_content(chunk_size=max_size):
+					yield b
+
+	def _chunk_text_gen(self, max_size)
+		b, b_size, n = [], 0, 0
+		for l in self.line_gen():
+			l_size = len(l.encode('utf-8'))
+			if l_size + b_size > max_size and len(b) > 0:
+				yield '\n'.join(b)
+				b, b_size, n = [], 0, n + 1
+			b.append(l)
+			b_size += l_size
+
+		if b_size > 0:
+			yield '\n'.join(b)
+
+	##########################################
+
+	def file_gen(self, location, headers=None):
 		if self._data:
 			yield self._data
 		else:
@@ -76,52 +103,27 @@ class DataReader:
 				else:
 					break
 
-	def _line_generator(self):
+	def line_gen(self):
 		if self.is_binary:
 			raise Exception('Can not iterate lines of binary file')
-		for file in self._file_generator():
+		for file in self.file_gen():
 			iterator = file if self.is_local else file.iter_lines(decode_unicode=True)
 			for line in iterator:
 				yield line.strip()
 
-	def _chunk_generator_binary(self, max_size):
-		for f in self._file_generator():
-			if self.is_local:
-				while True:
-					b = f.read(max_size)
-					if not b:
-						break
-					yield b
-			else:
-				for b in f.iter_content(chunk_size=max_size):
-					yield b
-
-	def _chunk_generator_text(self, max_size)
-		b, b_size, n = [], 0, 0
-		for l in self._line_generator():
-			l_size = len(l.encode('utf-8'))
-			if l_size + b_size > max_size and len(b) > 0:
-				yield '\n'.join(b)
-				b, b_size, n = [], 0, n + 1
-			b.append(l)
-			b_size += l_size
-
-		if b_size > 0:
-			yield '\n'.join(b)
-
-	def _chunk_generator(self, max_size=1024**4):
+	def chunk_gen(self, max_size=1024**4):
 		if self.is_binary:
-			return self._chunk_generator_binary(max_size)
-		return self._chunk_generator_text(max_size)
+			return self._chunk_binary_gen(max_size)
+		return self._chunk_text_gen(max_size)
 
 	@staticmethod
-	def from_location(location):
+	def load(location):
 		reader = DataReader()
 		reader.is_local = not location.startswith('http')
 		return reader
 
 	@staticmethod
-	def from_data(data):
+	def set(data):
 		reader = DataReader()
 		if isinstance(data, bytes):
 			reader._data     = io.BytesIO(data)
@@ -134,39 +136,40 @@ class DataReader:
 		raise Exception(f'Expected "str" or "bytes", got "{type(data)}"')
 
 ############################################################
+############################################################
 
 class DataWriter:
 	self.__init__(self, reader):
-		self._reader = reader
+		self.reader = reader
 
 	def write_single_file(self, location):
 		location = f'{location}.{self.file_type}'
-			with open(location, 'wb' if self._reader.is_binary else 'w') as f:
-				f.write(next(self._file_generator()).read())
+			with open(location, 'wb' if self.reader.is_binary else 'w') as f:
+				f.write(next(self.file_gen()).read())
 
 	def write_package(self, location, max_size):
 		n = 0
-		for chunk in self._chunk_generator(max_size):
+		for chunk in self.chunk_gen(max_size):
 			loc  = os.path.join(location, str(n))
-			mode = 'wb' if self._reader.is_binary else 'w'
+			mode = 'wb' if self.reader.is_binary else 'w'
 			with open(loc, mode) as f:
 				f.write(chunk)
 			n += 1
 
 ############################################################
+############################################################
 
 class Data:
 	def __init__(self, reader):
 		self.reader = reader
-		if data:
-			reader = DataReader.from_data(data)
+
+	@staticmethod
+	def set(data):
+		return Data(DataReader.set(data))
 
 	@staticmethod
 	def load(location):
-		return Data(DataReader.from_location(location))
-
-	def load_data(data):
-		return Data(DataReader.from_data(data))
+		return Data(DataReader.load(location))
 
 	def save(self, location, max_size=None):
 		writer = DataWriter(self.reader)
@@ -174,6 +177,7 @@ class Data:
 			writer.write_single_file(location)
 		else:
 			writer.write_package(location, max_size)
+		return self
 
 	def zip(self, location):
 		data = io.BytesIO()
@@ -188,7 +192,7 @@ class Data:
 
 	def unzip(self, location):
 		buffer = io.BytesIO()
-		for f in self.reader._file_generator():
+		for f in self.reader.file_gen():
 			buffer.write(f.read())
 
 		buffer.seek(0)
@@ -197,10 +201,8 @@ class Data:
 
 		with zipfile.ZipFile(buffer, 'r') as f:
 			f.extractall(location)
+		return self
 
-	@property
-	def lines(self):
-		return self._line_generator()
 
 	@property
 	def content(self):
@@ -209,11 +211,15 @@ class Data:
 			content += file_content
 		return content
 
-	def batches(self, batch_size=10, preprocess=None):
-		if self.is_binary:
-			raise Exception('Batch processing is not supported for binary files')
+	@property
+	def line_gen(self):
+		return self.reader.line_gen()
+
+	def batch_gen(self, batch_size=10, preprocess=None):
+		if self.reader.is_binary:
+			raise Exception('Batch generator is not supported for binary files')
 		batch = []
-		for line in self._line_generator():
+		for line in self.reader.line_gen():
 			if len(batch) < batch_size:
 				if preprocess:
 					line = preprocess(line)
@@ -223,5 +229,10 @@ class Data:
 				batch = []
 		if len(batch) > 0:
 			yield batch
+
+	def chunk_gen(self, chunk_size=1024):
+		if not self.reader.is_binary:
+			raise Exception('Chunk generator is only supported for binary files')
+		return self.reader.chunk_gen(chunk_size)
 
 ############################################################
