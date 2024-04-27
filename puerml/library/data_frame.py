@@ -48,12 +48,14 @@ class DataFrame:
 		
 	@staticmethod
 	def load(location, http_headers=None):
-		data_object   = Data.load(location, headers=http_headers)
+		d   = Data.load(location, headers=http_headers)
 		type_to_delim = {'csv': ',', 'tsv': '\t'}
-		if data_object.type in type_to_delim:
-			delimiter = type_to_delim[data_object.type]
+		if d.type in type_to_delim:
+			delimiter = type_to_delim[d.type]
+		else:
+			raise Exception('Delimiter can not be None')
 
-		lines  = data_object.line_gen
+		lines  = d.line_gen
 		header = next(lines).split(delimiter)
 		df = DataFrame(header)
 		for line in lines:
@@ -294,7 +296,11 @@ class DataFrame:
 		delimiter = {'.tsv':'\t', '.csv':','}.get(file_ext)
 		if delimiter:
 			header = delimiter.join(self.header)
-			rows   = [delimiter.join(row) for row in self]
+			if len(self.header) > 1:
+				rows = [delimiter.join(row) for row in self]
+			else:
+				rows = [''.join(row) for row in self]
+
 			rows.insert(0, header)
 			data = '\n'.join(rows)
 
