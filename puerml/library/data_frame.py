@@ -98,6 +98,9 @@ class DataFrame:
 			return row
 		else:
 			raise StopIteration
+
+	######################################################
+
 	def _error(self, s):
 		print('Error:', s)
 
@@ -118,6 +121,8 @@ class DataFrame:
 			else:
 				header.append(h)
 		return header
+
+	######################################################
 
 	def set_header(self, header):
 		self.header = header.copy()
@@ -309,7 +314,6 @@ class DataFrame:
 		else:
 			raise Exception(f'Unsupported file type: "{file_ext}"')
 
-
 	def to_list(self, col, _type=str):
 		return [_type(self.rows[n].get(col)) for n in range(len(self.rows))]
 
@@ -324,6 +328,12 @@ class DataFrame:
 		for col in cols:
 			lists.append(self.to_list(col))
 		return lists
+	
+	def to_tuples(self, cols, _type=str):
+		return [
+			tuple(_type(row.get(col)) for col in cols)
+			for row in self.rows
+		]
 
 	def print(self, max_rows=10):
 		margin    = 3
