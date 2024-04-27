@@ -289,7 +289,7 @@ class DataFrame:
 			df.append(self.rows[n].copy(df))
 		return df
 
-	def save(self, location, max_size=99*1024):
+	def save(self, location, max_size=None):
 		_, file_ext = os.path.splitext(location.lower())
 		delimiter = {'.tsv':'\t', '.csv':','}.get(file_ext)
 		if delimiter:

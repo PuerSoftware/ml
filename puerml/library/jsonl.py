@@ -26,7 +26,7 @@ class Jsonl:
 		return cls._traverse(data, lambda s: s.replace('\\n', '\n'))
 
 	@classmethod
-	def save(cls, data, location, max_size=99*1024):
+	def save(cls, data, location, max_size=None):
 		data = '\n'.join([cls.encode(item) for item in data])
 		Data.set(data).save(location, max_size)
 
