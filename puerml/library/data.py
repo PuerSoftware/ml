@@ -94,8 +94,10 @@ class DataReader:
 			yield self._data
 		else:
 			n = 0
+			urls = []
 			while True:
 				loc  = os.path.join(self.location, str(n))
+				urls.append(loc)
 				file = self._read(loc)
 				if file:
 					# reading package
@@ -104,13 +106,14 @@ class DataReader:
 					n += 1
 				elif n == 0:
 					# Reading single file
+					urls.append(self.location)
 					file = self._read(self.location)
 					if file:
 						yield file
 						if self.is_local: file.close()
 						break
 					else:
-						raise FileNotFoundError(self.location)
+						raise FileNotFoundError(' or '.join(urls))
 				else:
 					break
 
