@@ -1,4 +1,10 @@
+import os
+import io
 import magic
+import requests
+import zipfile
+
+from puerml.util import File
 
 '''
 Single file
@@ -20,14 +26,17 @@ class DataReader:
 		self._data     = None
 		self.is_binary = None
 		self.is_local  = False
+		self.is_zip    = False
+		self.location  = None
+		self.headers   = None
 
 	def _test_content(self, content):
 		mime           = magic.Magic(mime=True)
-        file_type      = mime.from_buffer(content)
-        self.is_binary = not file_type.startswith('text/')
+		file_type      = mime.from_buffer(content)
+		self.is_binary = not file_type.startswith('text/')
 
-	def _read_remote(self, location, headers):
-		response = requests.get(location, headers=headers, stream=True)
+	def _read_remote(self, location):
+		response = requests.get(location, headers=self.headers, stream=True)
 		if response.status_code == 200:
 			if self.is_binary is None:
 				self._test_content(response.content)
@@ -48,10 +57,10 @@ class DataReader:
 			print(f'Failed to read file "{location}": {e}')
 		return None
 
-	def _read(self, location, headers=None):
+	def _read(self, location):
 		if self.is_local:
 			return self._read_local(location)
-		return self._read_remote(location, headers)
+		return self._read_remote(location)
 
 	def _chunk_binary_gen(self, max_size):
 		for f in self.file_gen():
@@ -65,7 +74,7 @@ class DataReader:
 				for b in f.iter_content(chunk_size=max_size):
 					yield b
 
-	def _chunk_text_gen(self, max_size)
+	def _chunk_text_gen(self, max_size):
 		b, b_size, n = [], 0, 0
 		for l in self.line_gen():
 			l_size = len(l.encode('utf-8'))
@@ -80,14 +89,14 @@ class DataReader:
 
 	##########################################
 
-	def file_gen(self, location, headers=None):
+	def file_gen(self):
 		if self._data:
 			yield self._data
 		else:
 			n = 0
 			while True:
-				loc  = os.path.join(location, str(n))
-				file = self._read(loc, headers)
+				loc  = os.path.join(self.location, str(n))
+				file = self._read(loc)
 				if file:
 					# reading package
 					yield file
@@ -95,11 +104,13 @@ class DataReader:
 					n += 1
 				elif n == 0:
 					# Reading single file
-					file = self._read(location, headers)
+					file = self._read(self.location)
 					if file:
 						yield file
 						if self.is_local: file.close()
 						break
+					else:
+						raise FileNotFoundError(self.location)
 				else:
 					break
 
@@ -117,17 +128,20 @@ class DataReader:
 		return self._chunk_text_gen(max_size)
 
 	@staticmethod
-	def load(location):
+	def load(location, headers=None):
 		reader = DataReader()
+		reader.location = location
+		reader.headers  = headers
 		reader.is_local = not location.startswith('http')
 		return reader
 
 	@staticmethod
 	def set(data):
 		reader = DataReader()
+		reader.is_local  = True
 		if isinstance(data, bytes):
 			reader._data     = io.BytesIO(data)
-			reader.is_binary = True
+			reader.is_binary = True 
 			return reader
 		elif isinstance(data, str):
 			reader._data     = io.StringIO(data)
@@ -139,17 +153,19 @@ class DataReader:
 ############################################################
 
 class DataWriter:
-	self.__init__(self, reader):
+	def __init__(self, reader):
 		self.reader = reader
 
 	def write_single_file(self, location):
-		location = f'{location}.{self.file_type}'
-			with open(location, 'wb' if self.reader.is_binary else 'w') as f:
-				f.write(next(self.file_gen()).read())
+		File.rm(location)
+		with open(location, 'wb' if self.reader.is_binary else 'w') as f:
+			f.write(next(self.reader.file_gen()).read())
 
 	def write_package(self, location, max_size):
+		File.rm(location)
+		os.makedirs(location)
 		n = 0
-		for chunk in self.chunk_gen(max_size):
+		for chunk in self.reader.chunk_gen(max_size):
 			loc  = os.path.join(location, str(n))
 			mode = 'wb' if self.reader.is_binary else 'w'
 			with open(loc, mode) as f:
@@ -166,15 +182,23 @@ class Data:
 
 	@staticmethod
 	def set(data, file_type=None):
-		self.type = file_type.lower()
-		return Data(DataReader.set(data))
+		d = Data(DataReader.set(data))
+		if file_type:
+			d.type = file_type.lower()
+		return d
 
 	@staticmethod
-	def load(location):
+	def load(location, headers=None):
 		_, file_type = os.path.splitext(location.lower())
-		return Data(DataReader.load(location))
+		d = Data(DataReader.load(location, headers))
+		d.type = file_type.replace('.', '')
+		if location.endswith('.zip'):
+			d.reader.is_zip = True
+		return d
 
 	def save(self, location, max_size=None):
+		if self.reader.is_zip and not location.endswith('.zip'):
+			location += '.zip'
 		writer = DataWriter(self.reader)
 		if max_size is None:
 			writer.write_single_file(location)
@@ -182,7 +206,8 @@ class Data:
 			writer.write_package(location, max_size)
 		return self
 
-	def zip(self, location):
+	@staticmethod
+	def zip(location, max_size=None):
 		data = io.BytesIO()
 		with zipfile.ZipFile(data, 'w') as f:
 			for root, _, files in os.walk(location):
@@ -190,17 +215,20 @@ class Data:
 					file_path = os.path.join(root, file)
 					f.write(file_path, os.path.relpath(file_path, start=location))
 		data.seek(0)
-		self.reader._data = data
-		return self
+		d = Data(DataReader())
+		d.reader._data     = data
+		d.reader.is_local  = True
+		d.reader.is_binary = True
+		d.reader.is_zip    = True
+		return d
 
 	def unzip(self, location):
 		buffer = io.BytesIO()
 		for f in self.reader.file_gen():
-			buffer.write(f.read())
+			buffer.write(f.read() if self.reader.is_local else f.content)
 
 		buffer.seek(0)
-		if os.path.exists(location):
-			shutil.rmtree(location)
+		File.rm(location)
 
 		with zipfile.ZipFile(buffer, 'r') as f:
 			f.extractall(location)

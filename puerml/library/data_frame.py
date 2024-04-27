@@ -50,10 +50,10 @@ class DataFrame:
 	def load(location, http_headers=None):
 		data_object   = Data.load(location, headers=http_headers)
 		type_to_delim = {'csv': ',', 'tsv': '\t'}
-		if data_object.file_type in type_to_delim:
-			delimiter = type_to_delim[data_object.file_type]
+		if data_object.type in type_to_delim:
+			delimiter = type_to_delim[data_object.type]
 
-		lines  = data_object.lines
+		lines  = data_object.line_gen
 		header = next(lines).split(delimiter)
 		df = DataFrame(header)
 		for line in lines:
@@ -289,18 +289,19 @@ class DataFrame:
 			df.append(self.rows[n].copy(df))
 		return df
 
-	def save(self, location, file_type, max_size=99*1024):
-		file_type = file_type.lower()
-		delimiter = {'tsv':'\t', 'csv':','}.get(file_type)
+	def save(self, location, max_size=99*1024):
+		_, file_ext = os.path.splitext(location.lower())
+		delimiter = {'.tsv':'\t', '.csv':','}.get(file_ext)
 		if delimiter:
 			header = delimiter.join(self.header)
 			rows   = [delimiter.join(row) for row in self]
 			rows.insert(0, header)
 			data = '\n'.join(rows)
-			Data(data, file_type).save(location, max_size)
+
+			Data.set(data).save(location, max_size)
 			return self
 		else:
-			raise Exception(f'Unsupported file type: "{file_type}"')
+			raise Exception(f'Unsupported file type: "{file_ext}"')
 
 
 	def to_list(self, col, _type=str):
